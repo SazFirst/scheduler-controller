@@ -1,0 +1,35 @@
+apiVersion: ai-paas.org/v1alpha1
+kind: SchedulingPolicy
+metadata:
+  labels:
+    app.kubernetes.io/name: scheduler-controller
+    app.kubernetes.io/managed-by: kustomize
+  name: schedulingpolicy-sample
+spec:
+  sources:
+    - apiVersion: v1
+      kind: Pod
+      selector:
+        matchLabels:
+          workflow-id: example-workflow
+    - apiVersion: apps/v1
+      kind: Deployment
+      selector:
+        matchLabels:
+          workflow-id: example-workflow
+    - apiVersion: apps/v1
+      kind: ReplicaSet
+      selector:
+        matchLabels:
+          workflow-id: example-workflow
+    - apiVersion: batch/v1
+      kind: Job
+      selector:
+        matchLabels:
+          workflow-id: example-workflow
+  target:
+    schedulerName: custom-scheduler
+    priorityClassName: high-priority
+    labels:
+      queue: ml-batch
+      team: ml-platform

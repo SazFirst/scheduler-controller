@@ -1,0 +1,169 @@
+# scheduler-controller
+
+`scheduler-controller` is a Kubernetes operator that applies scheduling policy to selected workloads through a cluster-scoped `SchedulingPolicy` custom resource.
+
+The controller is intended for environments where workload scheduling settings should be managed centrally instead of being repeated in every workload manifest. A policy selects workloads by API version, kind, namespace, and labels, then enforces scheduling-related fields such as `schedulerName`, `priorityClassName`, and labels.
+
+
+## What It Does
+
+`SchedulingPolicy` provides a declarative way to describe two things:
+
+- Which workloads should be managed.
+- Which scheduling values should be applied to those workloads.
+
+For native Kubernetes workloads, the controller updates the workload itself or its pod template. For KServe `InferenceService`, it updates supported serving components directly in the custom resource spec.
+
+The custom resource API group is `ai-paas.org`.
+
+```yaml
+apiVersion: ai-paas.org/v1alpha1
+kind: SchedulingPolicy
+```
+
+
+## Supported Workloads
+
+| API version | Kind | Applied to |
+| --- | --- | --- |
+| `v1` | `Pod` | Pod spec and pod labels |
+| `v1` | `ReplicationController` | Pod template spec and template labels |
+| `apps/v1` | `Deployment` | Pod template spec and template labels |
+| `apps/v1` | `ReplicaSet` | Pod template spec and template labels |
+| `apps/v1` | `StatefulSet` | Pod template spec and template labels |
+| `apps/v1` | `DaemonSet` | Pod template spec and template labels |
+| `batch/v1` | `Job` | Pod template spec and template labels |
+| `batch/v1` | `CronJob` | Job template pod spec and template labels |
+| `serving.kserve.io/v1beta1` | `InferenceService` | `predictor`, `transformer`, and `explainer` component scheduling fields and labels |
+
+
+## Example
+
+```yaml
+apiVersion: ai-paas.org/v1alpha1
+kind: SchedulingPolicy
+metadata:
+  name: ml-workflow-batch
+spec:
+  sources:
+    - apiVersion: apps/v1
+      kind: Deployment
+      namespaces:
+        - kubeflow
+      selector:
+        matchLabels:
+          workflow-id: example-workflow
+    - apiVersion: batch/v1
+      kind: Job
+      namespaces:
+        - kubeflow
+      selector:
+        matchLabels:
+          workflow-id: example-workflow
+  target:
+    schedulerName: custom-scheduler
+    priorityClassName: high-priority
+    labels:
+      queue: ml-batch
+      team: ml-platform
+```
+
+The sample manifest in this repository is available at `config/samples/v1alpha1_schedulingpolicy.yaml`.
+
+
+## Installation
+
+The commands below use only a locally built image from a cloned repository.
+
+Prerequisites:
+
+- Go 1.23 or later
+- Docker or a compatible container runtime
+- kubectl
+- A Kubernetes cluster reachable from the current kubeconfig
+- A local development cluster that can load locally built images, such as kind, minikube, or Docker Desktop Kubernetes
+
+Clone the repository:
+
+```sh
+git clone https://github.com/ai-paas/scheduler-controller.git
+cd scheduler-controller
+```
+
+Build the controller image locally:
+
+```sh
+make docker-build IMG=scheduler-controller:dev
+```
+
+Load the image into your local cluster.
+
+For kind:
+
+```sh
+kind load docker-image scheduler-controller:dev
+```
+
+For minikube:
+
+```sh
+minikube image load scheduler-controller:dev
+```
+
+For Docker Desktop Kubernetes, the locally built Docker image is typically available to the cluster without an extra load step.
+
+Install the CRD and deploy the controller:
+
+```sh
+make install
+make deploy IMG=scheduler-controller:dev
+```
+
+Verify the deployment:
+
+```sh
+kubectl get crd schedulingpolicies.ai-paas.org
+kubectl get pods -n scheduler-controller-system
+```
+
+Apply the sample policy:
+
+```sh
+kubectl apply -f config/samples/v1alpha1_schedulingpolicy.yaml
+kubectl get schedulingpolicies.ai-paas.org
+kubectl describe schedulingpolicy schedulingpolicy-sample
+```
+
+
+## Development
+
+Common development commands:
+
+```sh
+make manifests
+make generate
+make fmt
+make vet
+make test
+make build
+```
+
+Run the controller locally against the current kubeconfig:
+
+```sh
+make install
+make run
+```
+
+Generate a single install manifest for local inspection:
+
+```sh
+make build-installer IMG=scheduler-controller:dev
+```
+
+The generated manifest is written to `dist/install.yaml`.
+
+
+## License
+
+See [LICENSE](LICENSE).
