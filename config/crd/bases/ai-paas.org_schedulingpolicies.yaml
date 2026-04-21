@@ -12,7 +12,7 @@ spec:
     listKind: SchedulingPolicyList
     plural: schedulingpolicies
     shortNames:
-    - spol
+    - sp
     singular: schedulingpolicy
   scope: Cluster
   versions:

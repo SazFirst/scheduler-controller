@@ -59,7 +59,7 @@ type SchedulingPolicyStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Cluster,shortName=spol
+// +kubebuilder:resource:scope=Cluster,shortName=sp
 
 // SchedulingPolicy is the Schema for the schedulingpolicies API.
 type SchedulingPolicy struct {
