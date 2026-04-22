@@ -43,6 +43,9 @@ type SchedulingTarget struct {
 
 // SchedulingPolicySpec defines the desired state of SchedulingPolicy.
 type SchedulingPolicySpec struct {
+	// +optional
+	// +kubebuilder:default=0
+	Priority int32 `json:"priority,omitempty"`
 	// +kubebuilder:validation:MinItems=1
 	Sources []WorkloadSource `json:"sources"`
 	Target  SchedulingTarget `json:"target"`

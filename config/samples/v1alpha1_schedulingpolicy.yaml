@@ -6,6 +6,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: schedulingpolicy-sample
 spec:
+  priority: 100
   sources:
     - apiVersion: v1
       kind: Pod

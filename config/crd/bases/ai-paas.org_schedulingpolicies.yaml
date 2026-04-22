@@ -41,6 +41,10 @@ spec:
           spec:
             description: SchedulingPolicySpec defines the desired state of SchedulingPolicy.
             properties:
+              priority:
+                default: 0
+                format: int32
+                type: integer
               sources:
                 items:
                   properties:

@@ -7,9 +7,10 @@ The controller is intended for environments where workload scheduling settings s
 
 ## What It Does
 
-`SchedulingPolicy` provides a declarative way to describe two things:
+`SchedulingPolicy` provides a declarative way to describe three things:
 
 - Which workloads should be managed.
+- Which policy should win when multiple policies match the same workload.
 - Which scheduling values should be applied to those workloads.
 
 For native Kubernetes workloads, the controller updates the workload itself or its pod template. For KServe `InferenceService`, it updates supported serving components directly in the custom resource spec.
@@ -45,6 +46,7 @@ kind: SchedulingPolicy
 metadata:
   name: ml-workflow-batch
 spec:
+  priority: 100
   sources:
     - apiVersion: apps/v1
       kind: Deployment
@@ -67,6 +69,8 @@ spec:
       queue: ml-batch
       team: ml-platform
 ```
+
+When more than one policy matches the same workload, the controller chooses the policy with the highest `spec.priority`. If priorities are equal, the earliest `metadata.creationTimestamp` wins. If both values are equal, the policy name is used as a deterministic final tie-breaker. Managed workloads are annotated with `ai-paas.org/scheduling-policy` to show which policy last applied scheduling settings.
 
 The sample manifest in this repository is available at `config/samples/v1alpha1_schedulingpolicy.yaml`.
 
