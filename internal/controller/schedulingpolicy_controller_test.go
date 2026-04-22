@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -154,6 +155,7 @@ var _ = Describe("SchedulingPolicy Controller", func() {
 					},
 				},
 			}
+			winnerPolicy.Spec.Priority = 100
 			Expect(k8sClient.Create(ctx, winnerPolicy)).To(Succeed())
 			DeferCleanup(func() {
 				_ = k8sClient.Delete(ctx, winnerPolicy)
@@ -184,6 +186,82 @@ var _ = Describe("SchedulingPolicy Controller", func() {
 			Expect(currentDeployment.Spec.Template.Spec.PriorityClassName).To(Equal("backup-priority"))
 			Expect(currentDeployment.Spec.Template.Labels).To(HaveKeyWithValue("queue", "batch-z"))
 			Expect(currentDeployment.Spec.Template.Labels).To(HaveKeyWithValue("team", "ml-platform"))
+		})
+
+		It("should select the highest priority matching policy", func() {
+			controllerReconciler := &SchedulingPolicyReconciler{}
+			deployment := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "priority-target",
+					Namespace: "default",
+					Labels:    map[string]string{"workflow-id": "example-workflow"},
+				},
+			}
+			source := schedulerv1alpha1.WorkloadSource{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Selector:   &metav1.LabelSelector{MatchLabels: map[string]string{"workflow-id": "example-workflow"}},
+			}
+			olderTime := metav1.NewTime(time.Date(2026, time.April, 22, 12, 0, 0, 0, time.UTC))
+			newerTime := metav1.NewTime(time.Date(2026, time.April, 22, 13, 0, 0, 0, time.UTC))
+
+			winner := controllerReconciler.selectWinningPolicy(deployment, source, []schedulerv1alpha1.SchedulingPolicy{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "older-low-priority", CreationTimestamp: olderTime},
+					Spec: schedulerv1alpha1.SchedulingPolicySpec{
+						Priority: 10,
+						Sources:  []schedulerv1alpha1.WorkloadSource{source},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "newer-high-priority", CreationTimestamp: newerTime},
+					Spec: schedulerv1alpha1.SchedulingPolicySpec{
+						Priority: 20,
+						Sources:  []schedulerv1alpha1.WorkloadSource{source},
+					},
+				},
+			})
+
+			Expect(winner).NotTo(BeNil())
+			Expect(winner.Name).To(Equal("newer-high-priority"))
+		})
+
+		It("should use creation timestamp when matching policy priorities are equal", func() {
+			controllerReconciler := &SchedulingPolicyReconciler{}
+			deployment := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "timestamp-target",
+					Namespace: "default",
+					Labels:    map[string]string{"workflow-id": "example-workflow"},
+				},
+			}
+			source := schedulerv1alpha1.WorkloadSource{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Selector:   &metav1.LabelSelector{MatchLabels: map[string]string{"workflow-id": "example-workflow"}},
+			}
+			olderTime := metav1.NewTime(time.Date(2026, time.April, 22, 12, 0, 0, 0, time.UTC))
+			newerTime := metav1.NewTime(time.Date(2026, time.April, 22, 13, 0, 0, 0, time.UTC))
+
+			winner := controllerReconciler.selectWinningPolicy(deployment, source, []schedulerv1alpha1.SchedulingPolicy{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "z-older-policy", CreationTimestamp: olderTime},
+					Spec: schedulerv1alpha1.SchedulingPolicySpec{
+						Priority: 50,
+						Sources:  []schedulerv1alpha1.WorkloadSource{source},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "a-newer-policy", CreationTimestamp: newerTime},
+					Spec: schedulerv1alpha1.SchedulingPolicySpec{
+						Priority: 50,
+						Sources:  []schedulerv1alpha1.WorkloadSource{source},
+					},
+				},
+			})
+
+			Expect(winner).NotTo(BeNil())
+			Expect(winner.Name).To(Equal("z-older-policy"))
 		})
 	})
 })

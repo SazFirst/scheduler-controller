@@ -638,6 +638,12 @@ func (r *SchedulingPolicyReconciler) selectWinningPolicy(obj client.Object, sour
 		return nil
 	}
 	sort.SliceStable(matched, func(i, j int) bool {
+		if matched[i].Spec.Priority != matched[j].Spec.Priority {
+			return matched[i].Spec.Priority > matched[j].Spec.Priority
+		}
+		if !matched[i].CreationTimestamp.Equal(&matched[j].CreationTimestamp) {
+			return matched[i].CreationTimestamp.Before(&matched[j].CreationTimestamp)
+		}
 		return matched[i].Name < matched[j].Name
 	})
 	return matched[0]
